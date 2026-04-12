@@ -1,0 +1,339 @@
+﻿import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import Anthropic from '@anthropic-ai/sdk';
+
+export function activate(context: vscode.ExtensionContext) {
+    console.log('Holy Quest AI Test Version activated!');
+    
+    try {
+        const provider = new HolyQuestAIViewProvider(context.extensionUri);
+        
+        context.subscriptions.push(
+            vscode.window.registerWebviewViewProvider(
+                'holyQuestAI.chatView',
+                provider
+            )
+        );
+        
+        vscode.window.showInformationMessage('Test Version Loaded!');
+        console.log('Test extension activated successfully');
+        
+    } catch (error: any) {
+        console.error('Activation error:', error);
+        vscode.window.showErrorMessage(`Failed: ${error.message}`);
+    }
+}
+
+export function deactivate() {
+    console.log('Extension deactivated');
+}
+
+class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
+    public static readonly viewType = 'holyQuestAI.chatView';
+    private _view?: vscode.WebviewView;
+    private anthropic: Anthropic;
+    private apiKey: string = '';
+
+    constructor(private readonly _extensionUri: vscode.Uri) {
+        console.log('Constructor called');
+        
+        const config = vscode.workspace.getConfiguration('holyQuestAI');
+        this.apiKey = config.get('apiKey') || '';
+        
+        this.anthropic = new Anthropic({
+            apiKey: this.apiKey || 'test-key'
+        });
+        
+        console.log('Constructor complete');
+    }
+
+    public resolveWebviewView(
+        webviewView: vscode.WebviewView,
+        context: vscode.WebviewViewResolveContext,
+        _token: vscode.CancellationToken
+    ) {
+        console.log('resolveWebviewView called');
+        this._view = webviewView;
+
+        webviewView.webview.options = {
+            enableScripts: true,
+            localResourceRoots: [this._extensionUri]
+        };
+        
+        console.log('Webview options set');
+
+        webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
+        
+        console.log('HTML assigned to webview');
+
+        webviewView.webview.onDidReceiveMessage(async (data) => {
+            console.log('Received message from webview:', data);
+            
+            // Test button handler
+            if (data.type === 'test') {
+                vscode.window.showInformationMessage('Webview communication works!');
+                return;
+            }
+            
+            // Chat handler
+            if (data.type === 'chat') {
+                const message = data.message || '';
+                console.log('Chat message received:', message);
+                
+                // Check for agent trigger
+                if (message.toLowerCase().includes('agent')) {
+                    console.log('>>> AGENT MODE ACTIVATED <<<');
+                    
+                    try {
+                        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                        if (!workspaceFolder) {
+                            webviewView.webview.postMessage({
+                                type: 'stream',
+                                text: '\n No workspace folder open\n'
+                            });
+                            return;
+                        }
+                        
+                        webviewView.webview.postMessage({
+                            type: 'stream',
+                            text: '\n Multi-agent system activated!\n'
+                        });
+                        
+                        // Import AgentCoordinator
+                        const { AgentCoordinator } = require('./agents/AgentCoordinator');
+                        const coordinator = new AgentCoordinator(
+                            this.apiKey,
+                            workspaceFolder.uri.fsPath,
+                            webviewView.webview
+                        );
+                        
+                        console.log('Running agent workflow...');
+                        webviewView.webview.postMessage({
+                            type: 'stream',
+                            text: ' Starting workflow...\n'
+                        });
+                        
+                        const result = await coordinator.runWorkflow(message);
+                        
+                        webviewView.webview.postMessage({
+                            type: 'stream',
+                            text: '\n\n Agent workflow complete!\n' + JSON.stringify(result, null, 2)
+                        });
+                        
+                    } catch (error: any) {
+                        console.error('Agent error:', error);
+                        webviewView.webview.postMessage({
+                            type: 'stream',
+                            text: '\n\n Error: ' + error.message + '\n'
+                        });
+                    }
+                } else {
+                    // Non-agent message
+                    webviewView.webview.postMessage({
+                        type: 'stream',
+                        text: '\n Received: ' + message + '\n(Tip: Use "agent" keyword to activate multi-agent system)\n'
+                    });
+                }
+                return;
+            }
+        });
+        
+        console.log('resolveWebviewView complete');
+    }
+
+    private getHtmlForWebview(webview: vscode.Webview): string {
+        console.log('Creating minimal test HTML');
+        
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Holy Quest AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #1e1e1e;
+            color: #cccccc;
+            padding: 20px;
+        }
+        
+        h1 { 
+            color: #4ec9b0; 
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .status {
+            background: #264f78;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .status div {
+            margin: 8px 0;
+        }
+        
+        .input-section {
+            margin: 20px 0;
+        }
+        
+        #chat-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #333;
+            color: #ccc;
+            border: 1px solid #555;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px 5px 5px 0;
+            font-size: 14px;
+        }
+        
+        button:hover { 
+            background: #1177bb; 
+        }
+        
+        button:active {
+            background: #0d5a8f;
+        }
+        
+        .log {
+            background: #252526;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        
+        .log-entry {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <h1>Holy Quest AI - Agent Test</h1>
+    
+    <div class="status">
+        <div id="html-status"> HTML Loaded Successfully</div>
+        <div id="js-status"> JavaScript: Checking...</div>
+        <div id="vscode-status"> VS Code API: Checking...</div>
+    </div>
+    
+    <div class="input-section">
+        <input 
+            type="text" 
+            id="chat-input" 
+            placeholder="Type message (use 'agent' keyword for multi-agent system)..."
+            onkeypress="if(event.key==='Enter') sendChat()"
+        />
+        <button onclick="sendChat()">Send Chat</button>
+        <button onclick="testCommunication()">Test Communication</button>
+        <button onclick="testConsole()">Test Console</button>
+    </div>
+    
+    <div class="log" id="log">Log initialized...</div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        
+        // Update status
+        document.getElementById('js-status').textContent = ' JavaScript: Working';
+        document.getElementById('vscode-status').textContent = ' VS Code API: Connected';
+        
+        function log(msg) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = time + ' - ' + msg;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(msg);
+        }
+        
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) {
+                log(' Please enter a message');
+                return;
+            }
+            
+            log(' Sending: ' + message);
+            vscode.postMessage({
+                type: 'chat',
+                message: message
+            });
+            input.value = '';
+        }
+        
+        function testCommunication() {
+            log(' Sending test message...');
+            vscode.postMessage({
+                type: 'test',
+                message: 'Hello from webview!'
+            });
+            log(' Message sent!');
+        }
+        
+        function testConsole() {
+            console.log(' Test log');
+            console.warn(' Test warning');
+            console.error(' Test error');
+            log(' Wrote test messages to browser console (Press F12 to see)');
+        }
+        
+        // Listen for messages from extension
+        window.addEventListener('message', event => {
+            const message = event.data;
+            
+            switch (message.type) {
+                case 'stream':
+                    log(' ' + message.text);
+                    break;
+                    
+                case 'progress':
+                    log(' ' + message.message);
+                    break;
+                    
+                case 'error':
+                    log(' ' + message.message);
+                    break;
+                    
+                case 'complete':
+                    log(' Complete: ' + message.message);
+                    break;
+            }
+        });
+        
+        // Log when ready
+        log(' Webview initialized successfully');
+        console.log('Webview script loaded');
+    </script>
+</body>
+</html>`;
+    }
+}

@@ -1,0 +1,312 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.activate = activate;
+exports.deactivate = deactivate;
+const vscode = __importStar(require("vscode"));
+const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
+function activate(context) {
+    const provider = new HolyQuestAIViewProvider(context.extensionUri);
+    context.subscriptions.push(vscode.window.registerWebviewViewProvider('holyQuestAI.chatView', provider));
+}
+function deactivate() { }
+class HolyQuestAIViewProvider {
+    _extensionUri;
+    static viewType = 'holyQuestAI.chatView';
+    _view;
+    anthropic;
+    apiKey = '';
+    constructor(_extensionUri) {
+        this._extensionUri = _extensionUri;
+        const config = vscode.workspace.getConfiguration('holyQuestAI');
+        this.apiKey = config.get('apiKey') || '';
+        this.anthropic = new sdk_1.default({ apiKey: this.apiKey || 'placeholder-key' });
+    }
+    resolveWebviewView(webviewView) {
+        this._view = webviewView;
+        webviewView.webview.options = { enableScripts: true };
+        webviewView.webview.html = this.getHtml();
+        webviewView.webview.onDidReceiveMessage(async (data) => {
+            if (data.type === 'saveApiKey') {
+                this.apiKey = data.apiKey;
+                this.anthropic = new sdk_1.default({ apiKey: this.apiKey });
+                const config = vscode.workspace.getConfiguration('holyQuestAI');
+                await config.update('apiKey', data.apiKey, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage('API Key Saved');
+                webviewView.webview.postMessage({ type: 'apiKeySaved' });
+                return;
+            }
+            if (data.type === 'chat') {
+                const message = data.message || '';
+                const imageData = data.imageData;
+                if (!this.apiKey || this.apiKey === 'placeholder-key') {
+                    webviewView.webview.postMessage({ type: 'error', message: 'Set API key first' });
+                    return;
+                }
+                if (message.toLowerCase().includes('agent')) {
+                    try {
+                        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                        if (!workspaceFolder) {
+                            webviewView.webview.postMessage({ type: 'error', message: 'No workspace open' });
+                            return;
+                        }
+                        webviewView.webview.postMessage({ type: 'agentStart' });
+                        const { AgentCoordinator } = require('./agents/AgentCoordinator');
+                        const coordinator = new AgentCoordinator(this.apiKey, workspaceFolder.uri.fsPath, webviewView.webview);
+                        const result = await coordinator.runWorkflow(message);
+                        webviewView.webview.postMessage({ type: 'agentComplete', result: result });
+                    }
+                    catch (error) {
+                        webviewView.webview.postMessage({ type: 'error', message: error.message });
+                    }
+                }
+                else {
+                    try {
+                        webviewView.webview.postMessage({ type: 'agentStart' });
+                        const messageContent = [{ type: 'text', text: message }];
+                        if (imageData) {
+                            const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+                            messageContent.push({
+                                type: 'image',
+                                source: {
+                                    type: 'base64',
+                                    media_type: 'image/png',
+                                    data: base64Data
+                                }
+                            });
+                        }
+                        const stream = await this.anthropic.messages.stream({
+                            model: 'claude-sonnet-4-20250514',
+                            max_tokens: 8000,
+                            temperature: 0.7,
+                            messages: [{ role: 'user', content: messageContent }]
+                        });
+                        let response = '';
+                        for await (const chunk of stream) {
+                            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+                                response += chunk.delta.text;
+                            }
+                        }
+                        webviewView.webview.postMessage({ type: 'agentComplete', result: { text: response } });
+                    }
+                    catch (error) {
+                        webviewView.webview.postMessage({ type: 'error', message: error.message });
+                    }
+                }
+            }
+        });
+    }
+    getHtml() {
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { margin:0; padding:0; background:#1e1e1e; color:#ccc; font-family:system-ui; }
+        .header { background:#2d2d30; padding:15px 20px; border-bottom:1px solid #3e3e42; }
+        .header h1 { margin:0; font-size:14px; font-weight:600; }
+        .content { height:calc(100vh - 130px); overflow-y:auto; padding:20px; }
+        .welcome { background:#2d2d30; border-radius:6px; padding:20px; }
+        .welcome h2 { margin:0 0 15px; font-size:18px; color:#4ec9b0; }
+        .welcome h3 { margin:15px 0 10px; font-size:14px; color:#9cdcfe; }
+        .welcome ul { margin:0; padding-left:20px; }
+        .welcome li { margin:5px 0; font-size:13px; }
+        .message { background:#2d2d30; border-radius:6px; padding:15px; margin-bottom:15px; }
+        .message-user { background:#0e639c; }
+        .message-agent { border-left:3px solid #4ec9b0; }
+        .message-error { background:#5a1d1d; border-left:3px solid #f48771; }
+        .markdown-body { background:transparent!important; color:#ccc!important; font-size:13px; }
+        .markdown-body code { background:#1e1e1e!important; padding:2px 6px; border-radius:3px; }
+        .markdown-body pre { background:#1e1e1e!important; border:1px solid #3e3e42; position:relative; padding-top:35px; }
+        .copy-btn { position:absolute; top:8px; right:8px; background:#0e639c; color:white; border:none; padding:4px 12px; border-radius:3px; font-size:11px; cursor:pointer; }
+        .copy-btn:hover { background:#1177bb; }
+        .typing { display:flex; gap:4px; padding:10px 0; }
+        .typing div { width:8px; height:8px; background:#4ec9b0; border-radius:50%; animation:pulse 1.4s infinite; }
+        .typing div:nth-child(2) { animation-delay:0.2s; }
+        .typing div:nth-child(3) { animation-delay:0.4s; }
+        @keyframes pulse { 0%,60%,100% { opacity:0.3; } 30% { opacity:1; } }
+        .input-area { position:fixed; bottom:0; left:0; right:0; background:#2d2d30; border-top:1px solid #3e3e42; padding:15px; }
+        .input-wrapper { position:relative; display:flex; align-items:center; background:#1e1e1e; border:1px solid #3e3e42; border-radius:24px; }
+        .input-wrapper:focus-within { border-color:#0e639c; }
+        textarea { flex:1; background:transparent; color:#ccc; border:none; padding:12px 80px 12px 50px; font-size:13px; resize:none; min-height:24px; max-height:120px; outline:none; font-family:system-ui; }
+        .icon-btn { background:transparent; border:none; padding:8px 12px; cursor:pointer; font-size:20px; color:#858585; transition:color 0.2s; margin:0; }
+        .icon-btn:hover { color:#4ec9b0; }
+        .attach-btn { position:absolute; left:8px; }
+        .send-btn { position:absolute; right:8px; color:#0e639c; font-size:24px; }
+        .send-btn:hover { color:#1177bb; }
+        .image-preview-inline { position:absolute; bottom:100%; left:0; right:0; background:#2d2d30; border:1px solid #3e3e42; border-radius:8px 8px 0 0; padding:8px 12px; font-size:12px; color:#9cdcfe; display:none; }
+        .image-preview-inline.show { display:flex; align-items:center; justify-content:space-between; }
+        .close-preview { background:transparent; border:none; color:#858585; cursor:pointer; font-size:16px; padding:0 8px; margin:0; }
+        .close-preview:hover { color:#f48771; }
+    </style>
+</head>
+<body>
+    <div class="header"><h1>HOLY QUEST AI: AI ASSISTANT</h1></div>
+    <div class="content" id="content">
+        <div class="welcome">
+            <h2>Welcome!</h2>
+            <h3>New Features:</h3>
+            <ul>
+                <li>Attach images and screenshots</li>
+                <li>Beautiful markdown formatting</li>
+                <li>Copy code with one click</li>
+            </ul>
+            <h3>Step 1:</h3>
+            <p>Paste your API key above</p>
+            <h3>Step 2:</h3>
+            <p>Ask me anything or upload a screenshot</p>
+        </div>
+    </div>
+    <div class="input-area">
+        <input type="file" id="imageInput" accept="image/*" style="display:none" />
+        <div class="image-preview-inline" id="imagePreviewInline">
+            <span id="imageFileName"></span>
+            <button class="close-preview" onclick="clearImage()">✕</button>
+        </div>
+        <div class="input-wrapper">
+            <button class="icon-btn attach-btn" onclick="document.getElementById('imageInput').click()" title="Attach image">📎</button>
+            <textarea id="input" placeholder="What would you like me to help with?" rows="1"></textarea>
+            <button class="icon-btn send-btn" onclick="send()" title="Send (Ctrl+Enter)">➤</button>
+        </div>
+    </div>
+    <script>
+        const vscode = acquireVsCodeApi();
+        const content = document.getElementById('content');
+        const input = document.getElementById('input');
+        const imageInput = document.getElementById('imageInput');
+        const imagePreviewInline = document.getElementById('imagePreviewInline');
+        const imageFileName = document.getElementById('imageFileName');
+        let currentImage = null;
+        
+        input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+        
+        imageInput.addEventListener('change', function() {
+            const file = imageInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentImage = e.target.result;
+                    imageFileName.textContent = '📷 ' + file.name;
+                    imagePreviewInline.classList.add('show');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        function clearImage() {
+            currentImage = null;
+            imageInput.value = '';
+            imagePreviewInline.classList.remove('show');
+            imageFileName.textContent = '';
+        }
+        
+        function send() {
+            const msg = input.value.trim();
+            if (!msg && !currentImage) return;
+            
+            add('user', msg || '[Image attached]');
+            
+            vscode.postMessage({ 
+                type: 'chat', 
+                message: msg,
+                imageData: currentImage 
+            });
+            
+            input.value = '';
+            input.style.height = 'auto';
+            clearImage();
+        }
+        
+        function add(type, text) {
+            const div = document.createElement('div');
+            div.className = 'message message-' + type;
+            if (type === 'agent') {
+                div.innerHTML = '<div class="markdown-body">' + marked.parse(text) + '</div>';
+                setTimeout(() => {
+                    div.querySelectorAll('pre').forEach(pre => {
+                        const btn = document.createElement('button');
+                        btn.className = 'copy-btn';
+                        btn.textContent = 'Copy';
+                        btn.onclick = () => { 
+                            navigator.clipboard.writeText(pre.textContent); 
+                            btn.textContent='Copied!'; 
+                            setTimeout(()=>btn.textContent='Copy',2000); 
+                        };
+                        pre.appendChild(btn);
+                    });
+                }, 0);
+            } else {
+                div.textContent = text;
+            }
+            content.appendChild(div);
+            content.scrollTop = content.scrollHeight;
+        }
+        
+        function typing(show) {
+            const t = document.getElementById('typing');
+            if (t) t.remove();
+            if (show) {
+                const div = document.createElement('div');
+                div.id = 'typing';
+                div.className = 'typing';
+                div.innerHTML = '<div></div><div></div><div></div>';
+                content.appendChild(div);
+                content.scrollTop = content.scrollHeight;
+            }
+        }
+        
+        input.addEventListener('keydown', e => { if (e.ctrlKey && e.key==='Enter') send(); });
+        
+        window.addEventListener('message', e => {
+            const m = e.data;
+            if (m.type==='agentStart') typing(true);
+            if (m.type==='stream') { typing(false); add('agent', m.text); }
+            if (m.type==='agentComplete') { typing(false); add('agent', m.result?.text || JSON.stringify(m.result,null,2)); }
+            if (m.type==='error') { typing(false); add('error', m.message); }
+            if (m.type==='info') add('info', m.message);
+        });
+    </script>
+</body>
+</html>`;
+    }
+}
+//# sourceMappingURL=extension_backup_needMemory.js.map

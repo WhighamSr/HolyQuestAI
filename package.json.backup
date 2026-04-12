@@ -1,0 +1,91 @@
+{
+  "name": "holy-quest-ai",
+  "displayName": "Holy Quest AI Assistant",
+  "description": "Intelligent AI coding assistant for Holy Quest development",
+  "version": "1.0.0",
+  "publisher": "holyquest",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "holy-quest-ai.openChat",
+        "title": "Open Holy Quest AI Chat",
+        "category": "Holy Quest AI"
+      },
+      {
+        "command": "holy-quest-ai.analyzeProject",
+        "title": "Analyze Project Structure",
+        "category": "Holy Quest AI"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "holy-quest-ai-sidebar",
+          "title": "Holy Quest AI",
+          "icon": "$(comment-discussion)"
+        }
+      ]
+    },
+    "views": {
+      "holy-quest-ai-sidebar": [
+        {
+          "type": "webview",
+          "id": "holy-quest-ai.chatView",
+          "name": "AI Assistant"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Holy Quest AI",
+      "properties": {
+        "holyQuestAI.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API Key for Claude"
+        },
+        "holyQuestAI.model": {
+          "type": "string",
+          "default": "claude-3-5-sonnet-20241022",
+          "description": "Claude model to use"
+        },
+        "holyQuestAI.autoSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically save files after AI edits"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.19.25",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.5.2",
+    "glob": "^13.0.0",
+    "mocha": "^11.7.5",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.0"
+  }
+}
