@@ -6,6 +6,9 @@ import { ConversationStore, Conversation } from '../storage/conversationStore';
 import { EnvironmentDetector } from '../utils/environmentDetector';
 import { ErrorHandler } from '../utils/errorHandler';
 import { RetryHandler } from '../utils/retryHandler';
+import { InputSanitizer } from '../utils/inputSanitizer';
+import { SecretScanner } from '../utils/secretScanner';
+import { PrivacyOrchestrator } from '../privacy/privacyOrchestrator';
 
 export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'holyQuestAI.chatView';
@@ -25,12 +28,18 @@ export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
         private readonly _extensionUri: vscode.Uri,
         private readonly context?: vscode.ExtensionContext
     ) {
-        const config = vscode.workspace.getConfiguration('holyQuestAI');
-        this.apiKey = config.get('apiKey') || '';
-        this.anthropic = new Anthropic({ apiKey: this.apiKey || 'placeholder-key' });
+        this.anthropic = new Anthropic({ apiKey: 'placeholder-key' });
+        // API key will be loaded from SecretStorage in initialize()
     }
 
     async initialize(context: vscode.ExtensionContext): Promise<void> {
+        // Load API key from SecretStorage
+        const storedKey = await context.secrets.get('holyQuestAI.apiKey');
+        if (storedKey) {
+            this.apiKey = storedKey;
+            this.anthropic = new Anthropic({ apiKey: this.apiKey });
+        }
+
         this.conversationStore = new ConversationStore(context.globalState);
         this.environmentDetector = new EnvironmentDetector(context.globalState);
         await this.environmentDetector.detect();
@@ -171,7 +180,14 @@ ${summaryText}
                     return;
                 }
                 
-                const messageContent: any[] = [{ type: 'text', text: message }];
+                // Sanitize user input before API transmission
+                const sanitizationResult = InputSanitizer.sanitize(message);
+                if (sanitizationResult.xssDetected || sanitizationResult.injectionDetected) {
+                    console.warn('Holy Quest AI: Suspicious input detected and sanitized.');
+                }
+                const safeMessage = sanitizationResult.sanitized;
+                
+                const messageContent: any[] = [{ type: 'text', text: safeMessage }];
                 
                 if (imageData) {
                     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
