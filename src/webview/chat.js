@@ -13,7 +13,9 @@ const imageFileName = document.getElementById('imageFileName');
 const tokenBar = document.getElementById('tokenBar');
 const tokenText = document.getElementById('tokenText');
 const summaryBtn = document.getElementById('summaryBtn');
+const stopBtn = document.getElementById('stopBtn');
 let currentImage = null;
+let isGenerating = false;
 
 input.addEventListener('input', function() {
     this.style.height = 'auto';
@@ -58,6 +60,15 @@ function generateSummary() {
     vscode.postMessage({ type: 'generateSummary' });
 }
 
+function stopGeneration() {
+    if (isGenerating) {
+        vscode.postMessage({ type: 'stopGeneration' });
+        isGenerating = false;
+        stopBtn.classList.remove('visible');
+        typing(false);
+    }
+}
+
 function sendMessage(e) {
     if (e) {
         e.preventDefault();
@@ -68,6 +79,9 @@ function sendMessage(e) {
     if (!msg && !currentImage) return false;
     
     add('user', msg || '[Image attached]');
+    
+    isGenerating = true;
+    stopBtn.classList.add('visible');
     
     vscode.postMessage({ 
         type: 'chat', 
@@ -131,9 +145,19 @@ window.addEventListener('message', e => {
     if (m.type==='agentStart') typing(true);
     if (m.type==='summaryStart') typing(true);
     if (m.type==='stream') { typing(false); add('agent', m.text); }
-    if (m.type==='agentComplete') { typing(false); add('agent', m.result?.text || JSON.stringify(m.result,null,2)); }
+    if (m.type==='agentComplete') { 
+        typing(false); 
+        isGenerating = false;
+        stopBtn.classList.remove('visible');
+        add('agent', m.result?.text || JSON.stringify(m.result,null,2)); 
+    }
     if (m.type==='summaryComplete') { typing(false); add('summary', m.summary); }
-    if (m.type==='error') { typing(false); add('error', m.message); }
+    if (m.type==='error') { 
+        typing(false);
+        isGenerating = false;
+        stopBtn.classList.remove('visible');
+        add('error', m.message); 
+    }
     if (m.type==='info') add('info', m.message);
     
     if (m.type==='updateTokens') {

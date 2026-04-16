@@ -1,0 +1,28 @@
+# Holy Quest AI — Git Line Ending Configuration
+# Ensures consistent line endings across Windows, Mac, Linux
+
+# Default behavior
+* text=auto
+
+# TypeScript and JavaScript — always LF
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.mjs text eol=lf
+
+# HTML/CSS — always LF
+*.html text eol=lf
+*.css text eol=lf
+
+# Markdown — always LF
+*.md text eol=lf
+
+# PowerShell — CRLF on Windows
+*.ps1 text eol=crlf
+
+# Binary files — no conversion
+*.vsix binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary

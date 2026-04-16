@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { ConversationStore, Conversation } from '../storage/conversationStore';
 import { EnvironmentDetector } from '../utils/environmentDetector';
+import { ErrorHandler } from '../utils/errorHandler';
+import { RetryHandler } from '../utils/retryHandler';
 
 export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'holyQuestAI.chatView';
@@ -17,6 +19,7 @@ export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
     private conversationStore?: ConversationStore;
     private currentConversation?: Conversation;
     private environmentDetector?: EnvironmentDetector;
+    private stopRequested: boolean = false;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -153,6 +156,11 @@ ${summaryText}
                 });
                 return;
             }
+
+            if (data.type === 'stopGeneration') {
+                this.stopRequested = true;
+                return;
+            }
             
             if (data.type === 'chat') {
                 const message = data.message || '';
@@ -214,7 +222,12 @@ ${summaryText}
                             });
                         }
                     } catch (error: any) {
-                        webviewView.webview.postMessage({ type: 'error', message: error.message });
+                        const categorized = ErrorHandler.categorize(error);
+                        ErrorHandler.showError(categorized);
+                        webviewView.webview.postMessage({ 
+                            type: 'error', 
+                            message: ErrorHandler.formatForWebview(categorized)
+                        });
                     }
                 } else {
                     try {
@@ -228,7 +241,11 @@ ${summaryText}
                         });
                         
                         let response = '';
+                        this.stopRequested = false;
                         for await (const chunk of stream) {
+                            if (this.stopRequested) {
+                                break;
+                            }
                             if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
                                 response += chunk.delta.text;
                             }
@@ -250,7 +267,12 @@ ${summaryText}
                             });
                         }
                     } catch (error: any) {
-                        webviewView.webview.postMessage({ type: 'error', message: error.message });
+                        const categorized = ErrorHandler.categorize(error);
+                        ErrorHandler.showError(categorized);
+                        webviewView.webview.postMessage({ 
+                            type: 'error', 
+                            message: ErrorHandler.formatForWebview(categorized)
+                        });
                     }
                 }
             }

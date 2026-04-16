@@ -56,3 +56,16 @@ textarea { flex:1; background:transparent; color:#ccc; border:none; padding:12px
 .image-preview-inline.show { display:flex; align-items:center; justify-content:space-between; }
 .close-preview { background:transparent; border:none; color:#858585; cursor:pointer; font-size:16px; padding:0 8px; margin:0; }
 .close-preview:hover { color:#f48771; }
+
+/* Stop Generation Button */
+.stop-btn { background:#5a1d1d; color:#f48771; border:1px solid #f48771; padding:6px 14px; border-radius:4px; font-size:11px; cursor:pointer; display:none; margin-left:8px; }
+.stop-btn.visible { display:inline-block; animation:pulse-warning 1.5s infinite; }
+.stop-btn:hover { background:#6e2525; }
+
+/* Error message styling */
+.message-error { background:#5a1d1d; border-left:3px solid #f48771; padding:12px 15px; }
+.error-suggestion { font-size:11px; color:#858585; margin-top:6px; }
+
+/* Retry indicator */
+.retry-indicator { font-size:11px; color:#dcdcaa; padding:4px 0; display:none; }
+.retry-indicator.visible { display:block; }
