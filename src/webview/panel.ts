@@ -9,6 +9,9 @@ import { RetryHandler } from '../utils/retryHandler';
 import { InputSanitizer } from '../utils/inputSanitizer';
 import { SecretScanner } from '../utils/secretScanner';
 import { PrivacyOrchestrator } from '../privacy/privacyOrchestrator';
+import { WorkspaceReader } from '../workspace/workspaceReader';
+import { WorkspaceWriter } from '../workspace/workspaceWriter';
+import { ContextBuilder } from '../workspace/contextBuilder';
 
 export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'holyQuestAI.chatView';
@@ -141,9 +144,11 @@ ${summaryText}
             if (data.type === 'saveApiKey') {
                 this.apiKey = data.apiKey;
                 this.anthropic = new Anthropic({ apiKey: this.apiKey });
-                const config = vscode.workspace.getConfiguration('holyQuestAI');
-                await config.update('apiKey', data.apiKey, vscode.ConfigurationTarget.Global);
-                vscode.window.showInformationMessage('API Key Saved');
+                // Save to SecretStorage instead of configuration
+                if (this.context) {
+                    await this.context.secrets.store('holyQuestAI.apiKey', data.apiKey);
+                }
+                vscode.window.showInformationMessage('API Key Saved Securely');
                 webviewView.webview.postMessage({ type: 'apiKeySaved' });
                 return;
             }
