@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
+import { ConversationStore, Conversation } from '../storage/conversationStore';
+import { EnvironmentDetector } from '../utils/environmentDetector';
 
 export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'holyQuestAI.chatView';
@@ -12,11 +14,34 @@ export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
     private readonly MAX_TOKENS = 200000;
     private readonly SUMMARY_THRESHOLD = 160000;
     private currentTokenCount = 0;
+    private conversationStore?: ConversationStore;
+    private currentConversation?: Conversation;
+    private environmentDetector?: EnvironmentDetector;
 
-    constructor(private readonly _extensionUri: vscode.Uri) {
+    constructor(
+        private readonly _extensionUri: vscode.Uri,
+        private readonly context?: vscode.ExtensionContext
+    ) {
         const config = vscode.workspace.getConfiguration('holyQuestAI');
         this.apiKey = config.get('apiKey') || '';
         this.anthropic = new Anthropic({ apiKey: this.apiKey || 'placeholder-key' });
+    }
+
+    async initialize(context: vscode.ExtensionContext): Promise<void> {
+        this.conversationStore = new ConversationStore(context.globalState);
+        this.environmentDetector = new EnvironmentDetector(context.globalState);
+        await this.environmentDetector.detect();
+        const existing = this.conversationStore.getActiveConversation();
+        if (existing) {
+            this.currentConversation = existing;
+            this.conversationHistory = existing.messages;
+        } else {
+            this.currentConversation = this.conversationStore.createNewConversation();
+            await this.conversationStore.saveConversation(this.currentConversation);
+            await this.conversationStore.setActiveConversation(
+                this.currentConversation.id
+            );
+        }
     }
 
     private estimateTokens(text: string): number {

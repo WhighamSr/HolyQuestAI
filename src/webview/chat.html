@@ -10,41 +10,42 @@
 </head>
 <body>
     <div class="header">
-        <h1>HOLY QUEST AI: AI ASSISTANT</h1>
+        <h1>HOLY QUEST AI — Your AI Dev Team</h1>
         <div class="header-controls">
             <div class="token-bar-container">
                 <div class="token-bar low" id="tokenBar" style="width:0%"></div>
                 <div class="token-text" id="tokenText">0 / 200k tokens (0%)</div>
             </div>
-            <button class="summary-btn" id="summaryBtn" onclick="generateSummary()" title="Generate context transfer summary">📝 Summary</button>
-            <button class="clear-btn" onclick="clearHistory()" title="Clear conversation history">🗑️</button>
+            <button class="summary-btn" id="summaryBtn" onclick="generateSummary()" title="Generate context summary">Summary</button>
+            <button class="clear-btn" onclick="clearHistory()" title="Clear history">Clear</button>
         </div>
     </div>
     <div class="content" id="content">
         <div class="welcome">
-            <h2>Welcome!</h2>
-            <h3>New Features:</h3>
+            <h2>Welcome to Holy Quest AI</h2>
+            <h3>Your AI Development Team</h3>
             <ul>
-                <li>📊 Real-time token usage tracker</li>
-                <li>📝 Auto-summary for context transfer</li>
-                <li>💬 Conversation memory</li>
-                <li>📎 Image attachments</li>
-                <li>✨ Beautiful markdown formatting</li>
+                <li>Real-time token usage tracker</li>
+                <li>Auto-summary for context transfer</li>
+                <li>Persistent conversation memory</li>
+                <li>Image attachments supported</li>
+                <li>Beautiful markdown formatting</li>
+                <li>Multi-agent dev team coming soon</li>
             </ul>
-            <h3>Token Management:</h3>
-            <p>Watch the token bar above. When it turns yellow (80%+), generate a summary to continue in a new chat without losing context.</p>
+            <h3>Token Management</h3>
+            <p>Watch the token bar above. When it turns yellow at 80%, generate a summary to continue without losing context.</p>
         </div>
     </div>
     <div class="input-area">
         <input type="file" id="imageInput" accept="image/*" style="display:none" />
         <div class="image-preview-inline" id="imagePreviewInline">
             <span id="imageFileName"></span>
-            <button class="close-preview" onclick="clearImage()">✕</button>
+            <button class="close-preview" onclick="clearImage()">X</button>
         </div>
         <div class="input-wrapper">
-            <button class="icon-btn attach-btn" onclick="attachImage(event)" title="Attach image">📎</button>
-            <textarea id="input" placeholder="What would you like me to help with?" rows="1"></textarea>
-            <button class="icon-btn send-btn" onclick="sendMessage(event)" title="Send (Ctrl+Enter)">➤</button>
+            <button class="icon-btn attach-btn" onclick="attachImage(event)" title="Attach image">+</button>
+            <textarea id="input" placeholder="Ask your AI dev team anything..." rows="1"></textarea>
+            <button class="icon-btn send-btn" onclick="sendMessage(event)" title="Send (Ctrl+Enter)">Send</button>
         </div>
     </div>
     <script nonce="NONCE_PLACEHOLDER" src="SCRIPT_URI_PLACEHOLDER"></script>
