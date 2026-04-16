@@ -1,0 +1,58 @@
+/* ============================================
+   Holy Quest AI — Chat Webview Styles
+   Extracted from extension.ts getHtml()
+   Pure CSS only — no style tags
+   ============================================ */
+
+* { box-sizing: border-box; }
+body { margin:0; padding:0; background:#1e1e1e; color:#ccc; font-family:system-ui; }
+.header { background:#2d2d30; padding:10px 20px; border-bottom:1px solid #3e3e42; }
+.header h1 { margin:0 0 8px 0; font-size:14px; font-weight:600; }
+.header-controls { display:flex; gap:8px; align-items:center; margin-top:8px; }
+.token-bar-container { flex:1; background:#1e1e1e; border-radius:10px; height:20px; position:relative; overflow:hidden; }
+.token-bar { height:100%; transition:all 0.3s ease; border-radius:10px; }
+.token-bar.low { background:linear-gradient(90deg, #4ec9b0, #5dcebc); }
+.token-bar.medium { background:linear-gradient(90deg, #dcdcaa, #e8e89d); }
+.token-bar.high { background:linear-gradient(90deg, #f48771, #ff9580); }
+.token-text { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:10px; font-weight:600; color:#1e1e1e; white-space:nowrap; }
+.summary-btn { background:#0e639c; color:white; border:none; padding:6px 12px; border-radius:4px; font-size:11px; cursor:pointer; }
+.summary-btn:hover { background:#1177bb; }
+.summary-btn.warning { background:#dcdcaa; color:#1e1e1e; animation:pulse-warning 2s infinite; }
+@keyframes pulse-warning { 0%, 100% { opacity:1; } 50% { opacity:0.7; } }
+.clear-btn { background:#5a1d1d; color:#f48771; border:none; padding:6px 12px; border-radius:4px; font-size:11px; cursor:pointer; }
+.clear-btn:hover { background:#6e2525; }
+.content { height:calc(100vh - 180px); overflow-y:auto; padding:20px; }
+.welcome { background:#2d2d30; border-radius:6px; padding:20px; }
+.welcome h2 { margin:0 0 15px; font-size:18px; color:#4ec9b0; }
+.welcome h3 { margin:15px 0 10px; font-size:14px; color:#9cdcfe; }
+.welcome ul { margin:0; padding-left:20px; }
+.welcome li { margin:5px 0; font-size:13px; }
+.message { background:#2d2d30; border-radius:6px; padding:15px; margin-bottom:15px; }
+.message-user { background:#0e639c; }
+.message-agent { border-left:3px solid #4ec9b0; }
+.message-error { background:#5a1d1d; border-left:3px solid #f48771; }
+.message-info { background:#2d2d30; border-left:3px solid #dcdcaa; }
+.message-summary { background:#1e1e1e; border:2px solid #4ec9b0; padding:20px; }
+.markdown-body { background:transparent!important; color:#ccc!important; font-size:13px; }
+.markdown-body code { background:#1e1e1e!important; padding:2px 6px; border-radius:3px; }
+.markdown-body pre { background:#1e1e1e!important; border:1px solid #3e3e42; position:relative; padding-top:35px; }
+.copy-btn { position:absolute; top:8px; right:8px; background:#0e639c; color:white; border:none; padding:4px 12px; border-radius:3px; font-size:11px; cursor:pointer; }
+.copy-btn:hover { background:#1177bb; }
+.typing { display:flex; gap:4px; padding:10px 0; }
+.typing div { width:8px; height:8px; background:#4ec9b0; border-radius:50%; animation:pulse 1.4s infinite; }
+.typing div:nth-child(2) { animation-delay:0.2s; }
+.typing div:nth-child(3) { animation-delay:0.4s; }
+@keyframes pulse { 0%,60%,100% { opacity:0.3; } 30% { opacity:1; } }
+.input-area { position:fixed; bottom:0; left:0; right:0; background:#2d2d30; border-top:1px solid #3e3e42; padding:15px; }
+.input-wrapper { position:relative; display:flex; align-items:center; background:#1e1e1e; border:1px solid #3e3e42; border-radius:24px; }
+.input-wrapper:focus-within { border-color:#0e639c; }
+textarea { flex:1; background:transparent; color:#ccc; border:none; padding:12px 50px 12px 50px; font-size:13px; resize:none; min-height:24px; max-height:120px; outline:none; font-family:system-ui; }
+.icon-btn { background:transparent; border:none; padding:8px 12px; cursor:pointer; font-size:20px; color:#858585; transition:color 0.2s; margin:0; flex-shrink:0; }
+.icon-btn:hover { color:#4ec9b0; }
+.attach-btn { position:absolute; left:8px; }
+.send-btn { position:absolute; right:8px; color:#0e639c; font-size:24px; line-height:1; }
+.send-btn:hover { color:#1177bb; }
+.image-preview-inline { position:absolute; bottom:100%; left:0; right:0; background:#2d2d30; border:1px solid #3e3e42; border-radius:8px 8px 0 0; padding:8px 12px; font-size:12px; color:#9cdcfe; display:none; }
+.image-preview-inline.show { display:flex; align-items:center; justify-content:space-between; }
+.close-preview { background:transparent; border:none; color:#858585; cursor:pointer; font-size:16px; padding:0 8px; margin:0; }
+.close-preview:hover { color:#f48771; }
