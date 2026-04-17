@@ -12,6 +12,8 @@ import { PrivacyOrchestrator } from '../privacy/privacyOrchestrator';
 import { WorkspaceReader } from '../workspace/workspaceReader';
 import { WorkspaceWriter } from '../workspace/workspaceWriter';
 import { ContextBuilder } from '../workspace/contextBuilder';
+import { DiffEngine } from '../diff/diffEngine';
+import { BackupManager } from '../diff/backupManager';
 
 export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'holyQuestAI.chatView';
@@ -26,12 +28,16 @@ export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
     private currentConversation?: Conversation;
     private environmentDetector?: EnvironmentDetector;
     private stopRequested: boolean = false;
+    private diffEngine: DiffEngine;
+    private backupManager: BackupManager;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
         private readonly context?: vscode.ExtensionContext
     ) {
         this.anthropic = new Anthropic({ apiKey: 'placeholder-key' });
+        this.diffEngine = new DiffEngine();
+        this.backupManager = new BackupManager();
         // API key will be loaded from SecretStorage in initialize()
     }
 
@@ -173,6 +179,16 @@ ${summaryText}
 
             if (data.type === 'stopGeneration') {
                 this.stopRequested = true;
+                return;
+            }
+
+            if (data.type === 'applyToFile') {
+                await this.handleApplyToFile(data.filePath, data.proposedContent);
+                return;
+            }
+
+            if (data.type === 'undoLastApply') {
+                await this.handleUndoLastApply();
                 return;
             }
             
@@ -327,5 +343,107 @@ ${summaryText}
             text += possible.charAt(Math.floor(Math.random() * possible.length));
         }
         return text;
+    }
+
+    public async handleApplyToFile(
+        filePath: string,
+        proposedContent: string
+    ): Promise<void> {
+        try {
+            // Read current file content
+            const uri = vscode.Uri.file(filePath);
+            let currentContent = '';
+            try {
+                const bytes = await vscode.workspace.fs.readFile(uri);
+                currentContent = new TextDecoder().decode(bytes);
+            } catch {
+                // File doesn't exist yet — treat as empty
+                currentContent = '';
+            }
+
+            // Open diff view
+            const proposedUri = vscode.Uri.parse(
+                `holyquest-proposed:${filePath}?${Date.now()}`
+            );
+            
+            // Register content provider for proposed content
+            const provider = new (class implements vscode.TextDocumentContentProvider {
+                provideTextDocumentContent(): string {
+                    return proposedContent;
+                }
+            })();
+            
+            const registration = vscode.workspace.registerTextDocumentContentProvider(
+                'holyquest-proposed',
+                provider
+            );
+
+            try {
+                await vscode.commands.executeCommand(
+                    'vscode.diff',
+                    uri,
+                    proposedUri,
+                    `Holy Quest AI: ${filePath.split(/[\\/]/).pop()} (Preview)`
+                );
+
+                // Ask user to confirm
+                const choice = await vscode.window.showInformationMessage(
+                    `Apply changes to ${filePath.split(/[\\/]/).pop()}?`,
+                    { modal: true },
+                    'Apply',
+                    'Cancel'
+                );
+
+                if (choice === 'Apply') {
+                    // Backup first
+                    this.backupManager.backup(filePath, currentContent);
+                    
+                    // Write new content
+                    await vscode.workspace.fs.writeFile(
+                        uri,
+                        new TextEncoder().encode(proposedContent)
+                    );
+
+                    vscode.window.showInformationMessage(
+                        `Applied changes to ${filePath.split(/[\\/]/).pop()}. Use "Undo Last Apply" to revert.`
+                    );
+                }
+            } finally {
+                registration.dispose();
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`Apply to File failed: ${message}`);
+        }
+    }
+
+    public async handleUndoLastApply(): Promise<void> {
+        const lastBackup = this.backupManager.getLastBackup();
+        
+        if (!lastBackup) {
+            vscode.window.showInformationMessage('No recent apply to undo.');
+            return;
+        }
+
+        const choice = await vscode.window.showWarningMessage(
+            `Undo apply to ${lastBackup.filePath.split(/[\\/]/).pop()}?`,
+            { modal: true },
+            'Undo',
+            'Cancel'
+        );
+
+        if (choice === 'Undo') {
+            try {
+                const uri = vscode.Uri.file(lastBackup.filePath);
+                await vscode.workspace.fs.writeFile(
+                    uri,
+                    new TextEncoder().encode(lastBackup.content)
+                );
+                vscode.window.showInformationMessage('Undo successful. File restored.');
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                vscode.window.showErrorMessage(`Undo failed: ${message}`);
+            }
+        }
     }
 }

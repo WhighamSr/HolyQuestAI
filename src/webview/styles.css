@@ -69,3 +69,29 @@ textarea { flex:1; background:transparent; color:#ccc; border:none; padding:12px
 /* Retry indicator */
 .retry-indicator { font-size:11px; color:#dcdcaa; padding:4px 0; display:none; }
 .retry-indicator.visible { display:block; }
+
+/* Apply to File and Undo buttons */
+.apply-to-file-btn,
+.undo-apply-btn {
+  display: inline-block;
+  margin-top: 8px;
+  margin-right: 8px;
+  padding: 6px 12px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--vscode-font-family);
+}
+
+.apply-to-file-btn:hover,
+.undo-apply-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.undo-apply-btn {
+  background: var(--vscode-inputValidation-warningBackground);
+  color: var(--vscode-inputValidation-warningForeground);
+}

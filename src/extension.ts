@@ -80,6 +80,32 @@ export function activate(context: vscode.ExtensionContext): void {
       );
     })
   );
+
+  // Register apply to file command
+  const applyToFileCommand = vscode.commands.registerCommand(
+    'holyQuestAI.applyToFile',
+    async (args: { filePath: string; proposedContent: string }) => {
+      if (!provider) {
+        vscode.window.showErrorMessage('Holy Quest AI panel is not active.');
+        return;
+      }
+      await provider.handleApplyToFile(args.filePath, args.proposedContent);
+    }
+  );
+
+  // Register undo last apply command
+  const undoLastApplyCommand = vscode.commands.registerCommand(
+    'holyQuestAI.undoLastApply',
+    async () => {
+      if (!provider) {
+        vscode.window.showErrorMessage('Holy Quest AI panel is not active.');
+        return;
+      }
+      await provider.handleUndoLastApply();
+    }
+  );
+
+  context.subscriptions.push(applyToFileCommand, undoLastApplyCommand);
 }
 
 export function deactivate(): void {
