@@ -148,14 +148,29 @@ ${summaryText}
         
         webviewView.webview.onDidReceiveMessage(async (data) => {
             if (data.type === 'saveApiKey') {
-                this.apiKey = data.apiKey;
-                this.anthropic = new Anthropic({ apiKey: this.apiKey });
-                // Save to SecretStorage instead of configuration
-                if (this.context) {
-                    await this.context.secrets.store('holyQuestAI.apiKey', data.apiKey);
+                // Check if it's multi-provider key or legacy Anthropic key
+                if (data.provider) {
+                    await this.handleSaveApiKey(data.provider, data.apiKey);
+                } else {
+                    // Legacy support for Anthropic
+                    this.apiKey = data.apiKey;
+                    this.anthropic = new Anthropic({ apiKey: this.apiKey });
+                    if (this.context) {
+                        await this.context.secrets.store('holyQuestAI.apiKey', data.apiKey);
+                    }
+                    vscode.window.showInformationMessage('API Key Saved Securely');
+                    webviewView.webview.postMessage({ type: 'apiKeySaved' });
                 }
-                vscode.window.showInformationMessage('API Key Saved Securely');
-                webviewView.webview.postMessage({ type: 'apiKeySaved' });
+                return;
+            }
+
+            if (data.type === 'checkApiKey') {
+                const hasKey = !!(await this.getApiKey(data.provider));
+                webviewView.webview.postMessage({ 
+                    type: 'apiKeyStatus', 
+                    provider: data.provider, 
+                    hasKey 
+                });
                 return;
             }
             
@@ -343,6 +358,22 @@ ${summaryText}
             text += possible.charAt(Math.floor(Math.random() * possible.length));
         }
         return text;
+    }
+
+    private async handleSaveApiKey(provider: string, apiKey: string): Promise<void> {
+        const validProviders = ['openai', 'gemini', 'anthropic', 'groq', 'deepseek', 'custom'];
+        if (!validProviders.includes(provider.toLowerCase())) {
+            this._view?.webview.postMessage({ type: 'apiKeyResult', success: false, error: 'Invalid provider' });
+            return;
+        }
+        if (this.context) {
+            await this.context.secrets.store(`holyquest.apikey.${provider.toLowerCase()}`, apiKey);
+            this._view?.webview.postMessage({ type: 'apiKeyResult', success: true, provider });
+        }
+    }
+
+    private async getApiKey(provider: string): Promise<string | undefined> {
+        return this.context?.secrets.get(`holyquest.apikey.${provider.toLowerCase()}`);
     }
 
     public async handleApplyToFile(
