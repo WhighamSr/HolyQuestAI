@@ -74,6 +74,27 @@
             </div>
         </div>
     </div>
+    <div id="ollama-setup-card" class="setup-card hidden">
+        <div class="setup-header">
+            <h3>🦙 Ollama Local AI (Free Forever)</h3>
+            <button id="ollama-close" class="close-btn">×</button>
+        </div>
+        <div class="setup-body">
+            <p id="ollama-status-text">Checking Ollama status...</p>
+            <div id="ollama-actions">
+                <button id="ollama-install-btn" class="primary-btn hidden">
+                    Install Ollama
+                </button>
+                <button id="ollama-pull-btn" class="primary-btn hidden">
+                    Download Recommended Model
+                </button>
+                <div id="ollama-pull-progress" class="progress-bar hidden">
+                    <div class="progress-fill"></div>
+                    <span class="progress-text">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
     <script nonce="NONCE_PLACEHOLDER" src="SCRIPT_URI_PLACEHOLDER"></script>
 </body>
 </html>

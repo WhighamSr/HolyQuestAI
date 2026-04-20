@@ -14,6 +14,7 @@ import { WorkspaceWriter } from '../workspace/workspaceWriter';
 import { ContextBuilder } from '../workspace/contextBuilder';
 import { DiffEngine } from '../diff/diffEngine';
 import { BackupManager } from '../diff/backupManager';
+import { OllamaMessageHandlers } from './ollamaMessageHandlers';
 
 export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'holyQuestAI.chatView';
@@ -30,6 +31,7 @@ export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
     private stopRequested: boolean = false;
     private diffEngine: DiffEngine;
     private backupManager: BackupManager;
+    private ollamaHandlers: OllamaMessageHandlers;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -38,6 +40,9 @@ export class HolyQuestAIViewProvider implements vscode.WebviewViewProvider {
         this.anthropic = new Anthropic({ apiKey: 'placeholder-key' });
         this.diffEngine = new DiffEngine();
         this.backupManager = new BackupManager();
+        this.ollamaHandlers = new OllamaMessageHandlers(
+            (msg) => this._view?.webview.postMessage(msg)
+        );
         // API key will be loaded from SecretStorage in initialize()
     }
 
@@ -204,6 +209,21 @@ ${summaryText}
 
             if (data.type === 'undoLastApply') {
                 await this.handleUndoLastApply();
+                return;
+            }
+
+            if (data.type === 'ollamaCheckStatus') {
+                await this.ollamaHandlers.handleStatusCheck();
+                return;
+            }
+
+            if (data.type === 'ollamaListModels') {
+                await this.ollamaHandlers.handleListModels();
+                return;
+            }
+
+            if (data.type === 'ollamaPullModel') {
+                await this.ollamaHandlers.handlePullModel(data.modelName);
                 return;
             }
             
